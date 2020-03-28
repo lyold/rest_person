@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Rewrite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,15 +27,32 @@ namespace RegisterPerson.API
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
 
-            // Registra o banco de dados
+            #region Registra o banco de dados
+
             var connection = Configuration["SQLServerConnection:SQLServerConnectionString"];
-            //var optionsBuilder = new DbContextOptionsBuilder<SQLServerContext>();
-            
             services.AddDbContext<SQLServerContext>(options => options.UseSqlServer(connection));
 
-            // Registra as dependências
+            #endregion
+
+            #region  Registra as dependências
+
             services.AddScoped<IPersonService, PersonService>();
             services.AddScoped<IPersonServiceSqlServer, PersonServiceSqlServer>();
+            
+            #endregion
+
+            #region Registra o Swagger
+
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+                {
+                    Title = "RestFul API with .NET Core 2.0",
+                    Version = "v1"
+                });
+            });              
+
+            #endregion
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -49,8 +67,30 @@ namespace RegisterPerson.API
                 app.UseHsts();
             }
 
+            #region Configurações do Swagger
+
+            app.UseSwagger();
+
+            app.UseSwaggerUI(s => {
+                s.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
+            });
+            
+            var option = new RewriteOptions();
+            option.AddRedirect("^$", "swagger");
+            app.UseRewriter(option);
+
+            #endregion
+            
             app.UseHttpsRedirection();
-            app.UseMvc();
+            app.UseMvc(routes=> 
+            {
+                routes.MapRoute(
+                        name: "Default API",
+                        template: "{controllern=Values}/{id?}"
+                    );
+            });
+            
+
         }
     }
 }
